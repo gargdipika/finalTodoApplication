@@ -3,14 +3,25 @@ GET http://localhost:3000/todos/?status=TO%20DO
 GET http://localhost:3000/todos/1
 
 ###
-POST http://localhost:3000/todos
+POST http://localhost:3000/todos/
 Content-Type: application/json
 
 {
-  "id": 7,
-  "todo": "Do practice of python",
+  "id": 8,
+  "todo": "Do practice of css",
   "priority": "HIGH",
   "status": "TO DO",
   "category": "HOME",
-  "dueDate": "2021-13-22"
+  "dueDate": "2021-11-22"
 }
+
+###
+PUT http://localhost:3000/todos/8
+Content-Type: application/json
+
+{
+    "dueDate": "2021-11-20"
+}
+
+###
+GET http://localhost:3000/agenda/?date=2021-02-22

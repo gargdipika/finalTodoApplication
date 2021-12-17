@@ -7,6 +7,10 @@ const sqlite3 = require("sqlite3");
 const path = require("path");
 const dbPath = path.join(__dirname, "todoApplication.db");
 
+const isValid = require("date-fns/isValid");
+const format = require("date-fns/format");
+const parseISO = require("date-fns/parseISO");
+
 let db = null;
 
 initializeDbAndServer = async () => {
@@ -114,19 +118,26 @@ const checkValidCategoryFromRequestBody = (request, response, next) => {
     response.send("Invalid Todo Category");
   }
 };
-const isValid = require("date-fns/isValid");
-const format = require("date-fns/format");
-const parseISO = require("date-fns/parseISO");
 
 const checkValidDateFromBody = (request, response, next) => {
   const { dueDate } = request.body;
   const isValidCheck = isValid(parseISO(dueDate));
-  if (isValid) {
+  if (isValidCheck) {
     next();
   } else {
     response.status(400);
     response.send("Invalid Due Date");
-    process.exit(1);
+  }
+};
+
+const checkValidDate = (request, response, next) => {
+  const { date } = request.query;
+  const isValidCheck = isValid(parseISO(date));
+  if (isValidCheck) {
+    next();
+  } else {
+    response.status(400);
+    response.send("Invalid Due Date");
   }
 };
 
@@ -184,23 +195,36 @@ app.get("/todos/:todoId/", async (request, response) => {
 });
 
 //API 3 return todo list specified due date
+app.get("/agenda/", checkValidDate, async (request, response) => {
+  const { date } = request.query;
+  const dueDateInProperFormat = format(parseISO(date), "yyyy-MM-dd");
+  console.log(dueDateInProperFormat);
+  const getTodoListQuery = `
+    SELECT id, todo, priority, status, category, due_date AS dueDate
+    FROM todo
+    WHERE due_date = '${dueDateInProperFormat}'`;
+  const getTodoList = await db.all(getTodoListQuery);
+  console.log(getTodoList);
+  response.send(getTodoList);
+});
 
 //API 4 create todo item
 app.post(
-  "/todos",
+  "/todos/",
   checkValidStatusFromRequestBody,
   checkValidPriorityFromRequestBody,
   checkValidCategoryFromRequestBody,
   checkValidDateFromBody,
   async (request, response) => {
     const { id, todo, priority, status, category, dueDate } = request.body;
-    const dueDateInProperFormat = format(parseISO(dueDate), "yyyy/MM/dd");
+    const dueDateInProperFormat = format(parseISO(dueDate), "yyyy-MM-dd");
     const createTodoItemQuery = `
     INSERT INTO todo (id, todo, priority, status, category, due_date)
     VALUES
     (${id}, '${todo}', '${priority}', '${status}', '${category}', '${dueDateInProperFormat}');`;
 
     const creatingTodo = await db.run(createTodoItemQuery);
+    console.log(creatingTodo);
     response.send("Todo Successfully Added");
   }
 );
@@ -211,6 +235,7 @@ app.put(
   checkValidStatusFromRequestBody,
   checkValidPriorityFromRequestBody,
   checkValidCategoryFromRequestBody,
+  checkValidDateFromBody,
   async (request, response) => {
     const { todoId } = request.params;
     const { status, priority, todo, category, dueDate } = request.body;
@@ -221,7 +246,8 @@ app.put(
       priority === undefined &&
       todo === undefined &&
       category === undefined &&
-      dueDate === undefined
+      dueDate === undefined &&
+      status !== undefined
     ) {
       const statusUpdateQuery = `
       UPDATE todo 
@@ -235,7 +261,8 @@ app.put(
       status === undefined &&
       todo === undefined &&
       category === undefined &&
-      dueDate === undefined
+      dueDate === undefined &&
+      priority !== undefined
     ) {
       const priorityUpdateQuery = `
       UPDATE todo 
@@ -249,7 +276,8 @@ app.put(
       status === undefined &&
       priority === undefined &&
       category === undefined &&
-      dueDate === undefined
+      dueDate === undefined &&
+      todo !== undefined
     ) {
       const todoUpdateQuery = `
       UPDATE todo 
@@ -263,7 +291,8 @@ app.put(
       status === undefined &&
       priority === undefined &&
       todo === undefined &&
-      dueDate === undefined
+      dueDate === undefined &&
+      category !== undefined
     ) {
       const todoUpdateQuery = `
       UPDATE todo 
@@ -273,6 +302,22 @@ app.put(
         id = ${todoId};`;
       await db.run(todoUpdateQuery);
       response.send("Category Updated");
+    } else if (
+      status === undefined &&
+      priority === undefined &&
+      todo === undefined &&
+      category === undefined &&
+      dueDate !== undefined
+    ) {
+      const formattedDate = format(parseISO(dueDate), "yyyy-MM-dd");
+      const todoUpdateQuery = `
+      UPDATE todo 
+      SET 
+        due_date = '${formattedDate}'
+      WHERE 
+        id = ${todoId};`;
+      await db.run(todoUpdateQuery);
+      response.send("Due Date Updated");
     }
   }
 );
